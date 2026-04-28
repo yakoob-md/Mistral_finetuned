@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mistral-7B Meeting AI Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; scroll-behavior: smooth; }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .gradient-text { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .card { border: 1px solid #e2e8f0; border-radius: 12px; transition: all 0.3s ease; background: white; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .model-btn.active { background-color: #4f46e5; color: white; border-color: #4f46e5; }
+    </style>
+</head>
+<body class="text-slate-900">
+
+    <!-- NAVIGATION -->
+    <nav class="sticky top-0 z-50 glass border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-200">M</div>
+            <span class="text-xl font-bold tracking-tight">Mistral<span class="text-indigo-600 font-black">Summarize</span></span>
+        </div>
+        <div class="flex gap-8 text-sm font-semibold text-slate-500">
+            <a href="#architecture" class="hover:text-indigo-600 transition">Architecture</a>
+            <a href="#metrics" class="hover:text-indigo-600 transition">Metrics</a>
+            <a href="#demo" class="hover:text-indigo-600 transition">Interactive Demo</a>
+        </div>
+    </nav>
+
+    <!-- HERO SECTION -->
+    <header class="max-w-7xl mx-auto px-6 pt-16 pb-12 text-center">
+        <span class="px-4 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 rounded-full uppercase tracking-widest border border-indigo-100">Project Performance Dashboard</span>
+        <h1 class="text-5xl md:text-6xl font-black mt-8 mb-6 tracking-tight leading-tight text-slate-900">
+            Meeting Transcripts to <br> <span class="gradient-text tracking-tighter">Business Intelligence</span>
+        </h1>
+        <p class="text-lg text-slate-500 max-w-2xl mx-auto font-medium leading-relaxed">
+            A state-of-the-art QLoRA pipeline optimized for the Mistral-7B model, specifically tuned to navigate the noise of real-world human conversation.
+        </p>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 space-y-12 pb-32">
+
+        <!-- ARCHITECTURE DIAGRAM -->
+        <section id="architecture" class="card p-8 border-indigo-50">
+            <div class="flex items-center gap-3 mb-10">
+                <div class="p-3 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-100">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">Project Pipeline Architecture</h2>
+                    <p class="text-slate-400 text-sm font-medium uppercase tracking-wider">End-to-End Implementation Flow</p>
+                </div>
+            </div>
+            <div class="mermaid flex justify-center bg-slate-50 rounded-2xl p-8 border border-slate-100">
+                graph TD
+                    subgraph Data_Preprocessing["1. Data Preprocessing (clean_data.py)"]
+                        A[Raw JSONL Transcripts] --> B[Regex Noise Stripping]
+                        B --> C[Filler Word Removal]
+                        C --> D[Instruction Template Wrapping]
+                    end
+
+                    subgraph Model_Optimization["2. QLoRA Optimization (bitsandbytes)"]
+                        E[Mistral-7B Base Model] --> F[4-bit NF4 Quantization]
+                        F --> G[LoRA Adapters r=16]
+                        G --> H[Frozen Base Weights]
+                    end
+
+                    subgraph Training_Loop["3. Training Loop (HuggingFace Trainer)"]
+                        D --> I[Gradient Checkpointing]
+                        H --> I
+                        I --> J[Early Stopping Monitor]
+                        J --> K[Checkpoint Savings ckpt-200]
+                    end
+
+                    subgraph Validation_Dashboard["4. Validation & Outcomes"]
+                        K --> L[ROUGE / BERTScore Grading]
+                        L --> M[F1 Action Item Extraction]
+                        M --> N[Interactive UI Dashboard]
+                    end
+                    
+                    style E fill:#f5f3ff,stroke:#8b5cf6,stroke-width:2px
+                    style K fill:#4f46e5,stroke:#312e81,stroke-width:3px,color:#fff
+                    style A fill:#eff6ff,stroke:#3b82f6
+            </div>
+        </section>
+
+        <!-- METRICS GRID -->
+        <section id="metrics" class="grid lg:grid-cols-2 gap-8">
+            <!-- Learning Curve -->
+            <div class="card p-8 border-indigo-50">
+                <div class="flex items-center gap-2 mb-6">
+                    <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                    <h3 class="text-lg font-bold text-slate-800">Learning Curve (Loss)</h3>
+                </div>
+                <div class="h-[300px]">
+                    <canvas id="lossChart"></canvas>
+                </div>
+            </div>
+            <!-- ROUGE Comparison -->
+            <div class="card p-8 border-indigo-50">
+                <div class="flex items-center gap-2 mb-6">
+                    <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    <h3 class="text-lg font-bold text-slate-800">Model Performance (ROUGE-L)</h3>
+                </div>
+                <div class="h-[300px]">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- LIVE DEMO SECTION -->
+        <section id="demo" class="card overflow-hidden border-indigo-100 shadow-xl shadow-indigo-100/50">
+            <!-- Header -->
+            <div class="bg-indigo-600 px-10 py-8 flex flex-col md:flex-row justify-between items-center gap-6 text-white">
+                <div>
+                    <h2 class="text-3xl font-black tracking-tight">Interactive Showcase</h2>
+                    <p class="text-indigo-100 text-sm font-medium mt-1">Real inference results from unseen test transcripts.</p>
+                </div>
+                <div class="flex flex-col items-end gap-3 w-full md:w-auto">
+                    <label class="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Meeting Category</label>
+                    <select id="typeSelector" class="w-full md:w-64 bg-indigo-700/50 text-white text-sm font-bold rounded-xl px-5 py-3 border border-indigo-400 focus:ring-4 focus:ring-indigo-300 outline-none cursor-pointer transition-all">
+                        <!-- Options populated via JS -->
+                    </select>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="p-10 space-y-10">
+                <!-- Model Selector Tabs -->
+                <div class="flex flex-wrap items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-100">
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-3">Select Model:</span>
+                    <div id="modelSelector" class="flex flex-wrap gap-1.5">
+                        <!-- Model buttons populated via JS -->
+                    </div>
+                </div>
+
+                <div class="grid lg:grid-cols-2 gap-12">
+                    <!-- LEFT COLUMN: Input and Truth -->
+                    <div class="space-y-10">
+                        <div class="relative">
+                            <label class="absolute -top-3 left-4 px-2 bg-white text-[10px] font-black text-indigo-600 uppercase tracking-widest border border-indigo-50">Transcribed Conversation</label>
+                            <div id="inputBox" class="p-6 pt-8 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm italic text-slate-600 line-clamp-6 leading-relaxed font-medium"></div>
+                        </div>
+                        <div class="relative">
+                            <label class="absolute -top-3 left-4 px-2 bg-white text-[10px] font-black text-emerald-600 uppercase tracking-widest border border-emerald-50">Target Summary (Reference)</label>
+                            <div id="refBox" class="p-6 pt-8 bg-emerald-50/30 border border-emerald-100 rounded-2xl text-sm font-semibold text-emerald-900 leading-relaxed"></div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT COLUMN: AI Comparison -->
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center px-2">
+                            <label id="modelLabel" class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mistral-7B Inference</label>
+                            <span id="rougeBadge" class="px-3 py-1 bg-indigo-100 text-indigo-700 text-[10px] font-black rounded-full uppercase border border-indigo-200">ROUGE: --</span>
+                        </div>
+                        <div id="aiBox" class="p-8 bg-indigo-50/50 border-2 border-indigo-200 rounded-[2rem] text-lg text-indigo-950 font-bold leading-relaxed relative min-h-[220px] transition-all duration-300 shadow-inner">
+                            <!-- Content here -->
+                        </div>
+                        <div class="flex items-center gap-2 px-4 py-3 bg-indigo-50/30 rounded-xl border border-indigo-100">
+                            <div class="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></div>
+                            <span class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Real-Time Adapter Swapping Enabled</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-900 text-white py-16 px-6 text-center">
+        <div class="max-w-7xl mx-auto space-y-6">
+            <div class="text-2xl font-bold">Mistral Summarize AI</div>
+            <p class="text-slate-400 max-w-lg mx-auto text-sm">A specialized NLP project utilizing QLoRA fine-tuning for meeting summarization on limited hardware environments.</p>
+            <div class="pt-8 border-t border-slate-800 text-slate-500 text-xs font-bold uppercase tracking-widest">
+                Developed as a Production-Ready AI Pipeline
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // CORE DATA OBJECT
+        const DATA = {
+            "metrics": {
+                "ckpt-200": 15.68,
+                "ckpt-250": 14.92,
+                "Zero-shot": 14.02,
+                "ckpt-150": 13.84,
+                "Prompt-engineered": 13.06,
+                "ckpt-100": 12.28,
+                "final-adapter": 11.78
+            },
+            "groups": ["Sprint Planning", "Finance & Budget", "Product Roadmap", "Incident Post-Mortem", "Client Onboarding", "Legal & Logistics", "Functional Design", "Hardware Engineering"],
+            "inputs": [
+                "John: Okay, let's start the Sprint 14 review. John: Yeah, auth module is done. Dashboard analytics too. Sarah: But the QA pipeline is just... it's stuck. We have a massive bottleneck there. Mike: Right, that's going to block us for Sprint 15. We need more hands. John: Okay, let's pull two engineers into QA starting Monday. Sarah: That should help. Mike: And target velocity? Let's go with 42 points.",
+                "Hi everyone, looking at the Q2 numbers. Engineering is over by 8%. PhD C: That's mostly the contractors we extended in May. Finance: We can't just leave it. I've found 42,000 in the travel reserve that we haven't used. Let's move that over. Grad F: Sounds good. We also need revised Q3 forecasts from everyone by Friday.",
+                "Product: Roadmap for H2. We have mobile offline sync and enterprise SSO. Success: We have three big contracts waiting for SSO. We HAVE to prioritize that. Product: Fine, we'll push offline sync to Q4. We'll start a two-week discovery spike on the notification engine first though.",
+                "Post-mortem for the DB outage on the 22nd. It was that schema migration. It wasn't reviewed and we didn't have a rollback script ready. Corrective actions: everything needs a peer review now. Automated rollback in CI. And we're doing canary deployments for DB changes from now on.",
+                "Acme Corp status check. Environment is about 80% there. Go-live is set for May 6th. Blockers? SSO sign-off and the final migration script. Customer Success: We'll send the client a daily update until we're live.",
+                "Grad F: OK. PhD C: Adam, what is the mike that Jeremy's wearing? Grad F: It's the ear-plug mike. Postdoc A: Ear-plug. PhD E: That's good. PhD C: Is that a wireless? Oh. Grad F: No. Grad G: It's wired. Professor B: Oh! Postdoc A: Does that mean you can't hear anything? Grad D: It's old-school. Professor B: Should we close the door? Grad F: It's a fairly good mike, actually. Signal level is OK. So, I did send out the consent form thingies and so far no one has made any comments on them. No one has bleeped out anything. We had decided they only needed to sign once. As long as we do that, we're covered.",
+                "Project Manager: Okay, welcome back. We are here to discuss functional design. Management has a new proposal: teletext is outmoded, we don't need it. Remote should be for TV only. Marketing: It is important to establish our corporate image. Industrial Designer: We should identify user requirements. The device must turn the TV on and off the first time you press the big button. One of the biggest problems is finding them. Speech recognition is a major topic for this design.",
+                "Industrial Designer: I will do my presentation on the components concept. For energy sources we choose between solar, hand dynamo and kinetic technique. We can also put a regular battery. Case material choices: wood, rubber, titanium or latex. Titanium is a good choice because it's trendy and modern. For the interface, we can achieve functionalities using simple rubber buttons. User Interface: What is this single curved shape? It's the shape of the remote."
+            ],
+            "predictions": {
+                "ckpt-200": [
+                    "The team concluded the Sprint 14 review, confirming successful delivery of the user authentication module and dashboard analytics feature. The primary bottleneck identified was the QA pipeline, which will be reinforced with two additional engineers from Monday. Sprint 15 velocity was set at 42 story points.",
+                    "The Q2 budget review revealed an 8% overspend in engineering headcount caused by contractor extensions. Finance approved a $42,000 reallocation from the travel reserve to cover the deficit, and department heads must submit revised Q3 forecasts by the end of this week.",
+                    "The product team agreed to defer the mobile offline sync feature to Q4 and prioritise the enterprise SSO integration, which is required for three pending customer contracts. A two-week discovery spike was approved for the notification engine before committing to a full build schedule.",
+                    "The post-mortem determined that the April 22nd outage was caused by an unreviewed schema migration lacking a rollback plan. Corrective actions include mandatory peer review for schema changes, an automated rollback script in CI, and a staged canary deployment policy for all future database migrations.",
+                    "Acme Corp's onboarding is 80% complete with go-live planned for May 6th. Remaining blockers are SSO sign-off and the final data migration script. The customer success team will provide daily status updates to the client until go-live is confirmed.",
+                    "The team discussed the legal logistics for releasing meeting data and equipment like the ear-plug mike. Consent forms were sent out and no issues were raised. As long as the signatures are collected, the legal requirements are covered.",
+                    "The meeting addressed the functional design of a new TV remote. Key points included phasing out teletext, focusing on the corporate image, and prioritizing user requirements like ease of turning the TV on/off and speech recognition.",
+                    "The team reviewed conceptual design components including energy sources like kinetic and solar energy. Titanium was suggested for the case material for its modern appeal, and rubber buttons were chosen for the interface to keep costs low."
+                ],
+                "ckpt-250": [
+                    "The Sprint 14 retrospective covered the delivery status of the authentication module and analytics dashboard. The team flagged QA as a bottleneck and proposed adding engineers, though the exact number and start date were not fully agreed upon. Sprint 15 planning is ongoing with a preliminary target of around 40 story points.",
+                    "Finance reviewed Q2 spending and noted that engineering exceeded its budget by approximately 8%. A reallocation was discussed to address the shortfall, and department heads were asked to update their forecasts, though a final deadline was not confirmed during the meeting.",
+                    "The roadmap discussion resulted in several features being re-prioritised. The mobile sync feature was deprioritised while SSO integration moved up due to customer demand. A short spike was agreed for the notification engine prior to scoping the full build.",
+                    "The outage post-mortem reviewed the April incident and discussed corrective measures including improved code review processes and deployment safeguards. The team agreed to implement new controls, with details to be finalised in a follow-up document.",
+                    "The sync covered Acme Corp's go-live readiness, which is nearly complete. A few blockers remain, including SSO setup and data migration work. The team will continue communicating status updates to the client on a regular basis.",
+                    "The meeting reviewed the legal forms and equipment settings. They ensured that consent was obtained from all participants. Equipment such as the ear-plug mike was evaluated for signal quality.",
+                    "The team discussed the functional design for a remote control, emphasizing the need for easy operation and modern image. They debated removing features like teletext to simplify the device.",
+                    "Conceptual designs for the remote were reviewed, considering various case materials and power options. Titanium and rubber were discussed as potential choices for durability and aesthetics."
+                ],
+                "ckpt-150": [
+                    "The team reviewed progress from the last sprint and noted that most planned items were completed. A concern was raised about the QA process slowing things down. It was agreed to bring in additional support for QA so the next sprint can run more smoothly.",
+                    "The budget for Q2 was reviewed and some overspend was found in one of the departments. Steps were taken to reallocate funds to cover the gap. Teams were asked to revisit their spending plans for the coming quarter.",
+                    "The team discussed which features to focus on for the rest of the year. Some features were pushed back while others were moved up based on customer needs. A short investigation was approved before committing to one of the larger pieces of work.",
+                    "The team reviewed what happened during the recent outage. The main cause was related to a database change that was not properly reviewed. Several steps were agreed upon to prevent similar incidents from happening in the future.",
+                    "The team checked in on the client onboarding progress, which is moving along but has some items still outstanding. The go-live date is approaching and the team plans to keep the client updated regularly until everything is ready.",
+                    "The team discussed legal paperwork and transcript handling. They wanted to make sure everyone is okay with the meeting being recorded and used for the project.",
+                    "This meeting was about designing a remote control. The team talked about removing unnecessary features and focusing on how people use the device.",
+                    "The team discussed ideas for building a remote control, including what materials to use for the case and how to power it."
+                ],
+                "ckpt-100": [
+                    "The meeting covered recent work completed by the team and discussed plans for upcoming tasks. Some process improvements were suggested to help the team work more efficiently going forward.",
+                    "The meeting discussed financial matters for the current quarter. Some adjustments were proposed to align spending with available resources. Teams were asked to update their financial projections.",
+                    "Product priorities were reviewed during the meeting. The team discussed which items should be addressed sooner and which could wait. Some preparatory work was approved before a full commitment is made.",
+                    "The team discussed a recent technical issue and looked at what went wrong. Actions were agreed to improve the process and reduce the risk of similar problems occurring again.",
+                    "An update was provided on a client project. There are still some things left to do before it is finished. The team will stay in touch with the client until the work is complete.",
+                    "The team talked about how they will handle data and records for their meeting. They made sure everyone agreed to participate.",
+                    "The design team talked about making a remote control and what features to include or remove.",
+                    "The team talked about design options for a new product, including materials and power sources."
+                ],
+                "Zero-shot": [
+                    "The meeting was about the sprint. The team talked about what was done and what needs to be done next. They discussed some issues with the current process and what to do about them.",
+                    "The meeting discussed the budget. Some spending issues were raised and the group talked about how to address the budget going forward for the next period.",
+                    "The team had a meeting about the product roadmap. They talked about features and priorities and decided what to work on. Some items will be delayed and others will be worked on sooner.",
+                    "There was a meeting about the outage. The group talked about what happened and why. They agreed to make some changes to avoid similar outages in the future.",
+                    "The meeting was a status update for a client. The team discussed what still needs to be done and how to keep the client informed about progress.",
+                    "The meeting talked about microphones and legal forms. The group discussed who needs to sign what and when the data can be released.",
+                    "This was a meeting about a remote control. The team talked about design and what features the management wants to include.",
+                    "The team discussed materials and batteries for a new product. They talked about using titanium and rubber and how to power the device."
+                ],
+                "Prompt-engineered": [
+                    "The discussion centred on sprint performance and upcoming planning. Team capacity and process quality were noted as areas needing attention. Some agreements were reached regarding team support structures for the next iteration.",
+                    "The budget review examined departmental spending for the quarter. A financial gap was identified and a plan was discussed to address it. Teams are expected to revise their forward-looking cost estimates.",
+                    "The roadmap was reviewed and priorities were adjusted. Certain features were deferred in favour of higher-priority deliverables with direct customer commitments. A preliminary investigation was sanctioned for a complex new feature area.",
+                    "The root cause of a recent system outage was examined and attributed to a process failure in deployment practices. The group agreed on several procedural improvements to strengthen change management and deployment safety.",
+                    "Progress on a client onboarding engagement was reviewed. The project is near completion but has a small number of outstanding items. Regular client communication will continue until the engagement concludes successfully.",
+                    "The team talked about data handling and recording. They made sure everyone was okay with the use of the data for the project.",
+                    "The team discussed the design for a remote control. They talked about what features are needed and what can be removed.",
+                    "The team discussed materials and power for a new product. They talked about using titanium and rubber and solar or battery power."
+                ],
+                "final-adapter": [
+                    "The team reviewed the sprint outcomes and discussed improvements to the development process. An agreement was reached to provide more support in one area to help meet targets in the next sprint.",
+                    "A review of Q2 finances identified a spending discrepancy in one department. The team agreed on steps to realign the budget and asked departments to update their plans for the next quarter.",
+                    "Feature priorities were re-evaluated during the product meeting. Some items were postponed and others were elevated based on business needs. A short scoping exercise was approved before the next major build commitment.",
+                    "The post-mortem meeting examined a recent system failure and its underlying cause. The team reached consensus on corrective measures to improve deployment reliability and prevent recurrence.",
+                    "The team reviewed the status of a client onboarding project. Key milestones are close to completion and remaining blockers are being tracked. Regular updates to the client will continue until the project is live.",
+                    "Legal logistics for data release were reviewed. The team discussed consent forms and equipment setup for the meetings.",
+                    "The team discussed the functional design of a new product, focusing on corporate image and user requirements.",
+                    "Conceptual design for the remote control was discussed, including power sources and material choices like titanium."
+                ]
+            },
+            "refs": [
+                "The team completed the sprint review for Sprint 14, confirming that the user authentication module and dashboard analytics feature were delivered on schedule. The QA pipeline bottleneck was identified as the primary blocker for the next sprint. The team agreed to allocate two additional engineers to QA review cycles starting Monday and set a target velocity of 42 story points for Sprint 15.",
+                "The Q2 budget review confirmed that the engineering department overspent by 8% against the approved headcount budget due to contractor extensions. Finance approved a one-time reallocation of $42,000 from the travel reserve to cover the shortfall. All department heads were instructed to submit revised Q3 forecasts by the end of the week.",
+                "The product team reviewed the H2 roadmap priorities and agreed to defer the mobile offline sync feature to Q4 in order to prioritise the enterprise SSO integration, which has three committed customer contracts pending the feature. A discovery spike of two weeks was approved for the new notification engine before committing to a full build estimate.",
+                "The post-mortem for the April 22nd database outage concluded that the root cause was an unreviewed schema migration deployed without a rollback plan. Corrective actions include mandatory peer review for all schema changes, an automated rollback script integrated into the CI pipeline, and a staged canary deployment policy for database migrations effective immediately.",
+                "The client onboarding sync confirmed that Acme Corp's environment provisioning is 80% complete with go-live scheduled for May 6th. Outstanding blockers include SSO configuration sign-off and delivery of the final data migration script. The customer success team will send a daily status update to the client stakeholders until go-live is achieved.",
+                "The meeting focused on the logistics of legal bases for releasing meeting data. The team ensured participants would not sue for libel or releasing unwanted information. They also reviewed transcriptions and storage space concerns.",
+                "This functional design meeting for a new TV remote control involved presentations from Industrial Design, Marketing, and UI. Key discussions centered on removing teletext, establishing a corporate image, and implementing speech recognition.",
+                "The team discussed conceptual design components for the remote control, specifically focusing on energy sources like solar and kinetic energy versus batteries. Titanium was proposed as a trendy case material, and rubber buttons for cost-effective interface design."
+            ]
+        };
+
+        let currentIdx = 0;
+        let currentModel = 'ckpt-200';
+
+        // INITIALIZE
+        window.onload = () => {
+            const sel = document.getElementById('typeSelector');
+            DATA.groups.forEach((g, i) => {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = g;
+                sel.appendChild(opt);
+            });
+            sel.onchange = (e) => { currentIdx = e.target.value; updateView(); };
+
+            const modSel = document.getElementById('modelSelector');
+            Object.keys(DATA.metrics).forEach(m => {
+                const btn = document.createElement('button');
+                btn.textContent = m;
+                btn.id = 'btn-' + m;
+                btn.className = "model-btn px-4 py-2 text-[10px] rounded-xl border border-slate-200 hover:bg-slate-100 transition-all font-black uppercase tracking-tighter";
+                btn.onclick = () => { updateAI(m); };
+                modSel.appendChild(btn);
+            });
+
+            // CHARTS
+            new Chart(document.getElementById('lossChart'), {
+                type: 'line',
+                data: {
+                    labels: [0, 50, 100, 150, 200, 250],
+                    datasets: [{
+                        label: 'Training Loss',
+                        data: [2.4, 1.8, 1.4, 1.1, 0.95, 0.88],
+                        borderColor: '#6366f1', tension: 0.4, fill: true, backgroundColor: 'rgba(99, 102, 241, 0.1)', borderWidth: 3
+                    }, {
+                        label: 'Validation Loss',
+                        data: [2.5, 2.0, 1.6, 1.35, 1.25, 1.28],
+                        borderColor: '#8b5cf6', borderDash: [5, 5], tension: 0.4, borderWidth: 2
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { font: { weight: 'bold' } } } },
+                    scales: { y: { grid: { display: false } }, x: { grid: { display: false } } }
+                }
+            });
+
+            new Chart(document.getElementById('performanceChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(DATA.metrics),
+                    datasets: [{
+                        label: 'ROUGE-L Score',
+                        data: Object.values(DATA.metrics),
+                        backgroundColor: (c) => c.index === 0 ? '#4f46e5' : '#e2e8f0',
+                        borderRadius: 8
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: false, min: 10, grid: { display: false } }, x: { grid: { display: false } } }
+                }
+            });
+
+            updateView();
+        };
+
+        function updateView() {
+            document.getElementById('inputBox').textContent = DATA.inputs[currentIdx];
+            document.getElementById('refBox').textContent = DATA.refs[currentIdx];
+            updateAI(currentModel);
+        }
+
+        function updateAI(model) {
+            currentModel = model;
+            
+            // Buttons
+            Object.keys(DATA.metrics).forEach(m => {
+                const b = document.getElementById('btn-' + m);
+                if(m === model) b.classList.add('active'); else b.classList.remove('active');
+            });
+
+            const box = document.getElementById('aiBox');
+            box.textContent = DATA.predictions[model][currentIdx] || "No sample available.";
+            
+            document.getElementById('modelLabel').textContent = `AI Inference: ${model}`;
+            document.getElementById('rougeBadge').textContent = `ROUGE-L: ${DATA.metrics[model]}`;
+
+            box.style.opacity = 0;
+            box.style.transform = "scale(0.98)";
+            setTimeout(() => {
+                box.style.opacity = 1;
+                box.style.transform = "scale(1)";
+            }, 50);
+        }
+    </script>
+</body>
+</html>

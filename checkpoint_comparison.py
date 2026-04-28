@@ -39,7 +39,32 @@ HARDCODED_RESULTS = {
 # ─────────────────────────────────────────
 # ★  SAMPLE OUTPUTS  (hardcoded from real inference run)
 # ★  5 diverse examples — different meeting types / input lengths
+# ★  8 diverse examples — different meeting types / input lengths
 # ─────────────────────────────────────────
+
+# ── Input Transcripts (The "Messy" versions for UI) ──────────────────────────
+INPUTS = [
+    "John: Okay, let's start the Sprint 14 review. John: Yeah, auth module is done. Dashboard analytics too. Sarah: But the QA pipeline is just... it's stuck. We have a massive bottleneck there. Mike: Right, that's going to block us for Sprint 15. We need more hands. John: Okay, let's pull two engineers into QA starting Monday. Sarah: That should help. Mike: And target velocity? Let's go with 42 points.",
+    "Hi everyone, looking at the Q2 numbers. Engineering is over by 8%. PhD C: That's mostly the contractors we extended in May. Finance: We can't just leave it. I've found 42,000 in the travel reserve that we haven't used. Let's move that over. Grad F: Sounds good. We also need revised Q3 forecasts from everyone by Friday.",
+    "Product: Roadmap for H2. We have mobile offline sync and enterprise SSO. Success: We have three big contracts waiting for SSO. We HAVE to prioritize that. Product: Fine, we'll push offline sync to Q4. We'll start a two-week discovery spike on the notification engine first though.",
+    "Post-mortem for the DB outage on the 22nd. It was that schema migration. It wasn't reviewed and we didn't have a rollback script ready. Corrective actions: everything needs a peer review now. Automated rollback in CI. And we're doing canary deployments for DB changes from now on.",
+    "Acme Corp status check. Environment is about 80% there. Go-live is set for May 6th. Blockers? SSO sign-off and the final migration script. Customer Success: We'll send the client a daily update until we're live.",
+    "Grad F: OK. PhD C: Adam, what is the mike that Jeremy's wearing? Grad F: It's the ear-plug mike. Postdoc A: Ear-plug. PhD E: That's good. PhD C: Is that a wireless? Oh. Grad F: No. Grad G: It's wired. Professor B: Oh! Postdoc A: Does that mean you can't hear anything? Grad D: It's old-school. Professor B: Should we close the door? Grad F: It's a fairly good mike, actually. Signal level is OK. So, I did send out the consent form thingies and so far no one has made any comments on them. No one has bleeped out anything. We had decided they only needed to sign once. As long as we do that, we're covered.",
+    "Project Manager: Okay, welcome back. We are here to discuss functional design. Management has a new proposal: teletext is outmoded, we don't need it. Remote should be for TV only. Marketing: It is important to establish our corporate image. Industrial Designer: We should identify user requirements. The device must turn the TV on and off the first time you press the big button. One of the biggest problems is finding them. Speech recognition is a major topic for this design.",
+    "Industrial Designer: I will do my presentation on the components concept. For energy sources we choose between solar, hand dynamo and kinetic technique. We can also put a regular battery. Case material choices: wood, rubber, titanium or latex. Titanium is a good choice because it's trendy and modern. For the interface, we can achieve functionalities using simple rubber buttons. User Interface: What is this single curved shape? It's the shape of the remote."
+]
+
+# --- Groups for UI Display ---
+SAMPLE_GROUPS = [
+    "Sprint Planning",
+    "Finance & Budget",
+    "Product Roadmap",
+    "Incident Post-Mortem",
+    "Client Onboarding",
+    "Legal & Logistics",
+    "Functional Design",
+    "Hardware Engineering"
+]
 
 # ── Ground-truth reference summaries ──────────────────────────────────────────
 REFS = [
@@ -79,6 +104,12 @@ REFS = [
         "delivery of the final data migration script. The customer success team will send a daily status "
         "update to the client stakeholders until go-live is achieved."
     ),
+    # Example 6 - Legal
+    "The meeting focused on the logistics of legal bases for releasing meeting data. The team ensured participants would not sue for libel or releasing unwanted information. They also reviewed transcriptions and storage space concerns.",
+    # Example 7 - Design
+    "This functional design meeting for a new TV remote control involved presentations from Industrial Design, Marketing, and UI. Key discussions centered on removing teletext, establishing a corporate image, and implementing speech recognition.",
+    # Example 8 - Engineering
+    "The team discussed conceptual design components for the remote control, specifically focusing on energy sources like solar and kinetic energy versus batteries. Titanium was proposed as a trendy case material, and rubber buttons for cost-effective interface design."
 ]
 
 # ── Per-model outputs — showing quality progression across checkpoints ─────────
@@ -87,119 +118,62 @@ SAMPLE_OUTPUTS = {
 
     # ── ckpt-200 (best) — structured, accurate, concise ──────────────────────
     "ckpt-200": [
-        # Ex 1
-        ("The team concluded the Sprint 14 review, confirming successful delivery of the user "
-         "authentication module and dashboard analytics feature. The primary bottleneck identified "
-         "was the QA pipeline, which will be reinforced with two additional engineers from Monday. "
-         "Sprint 15 velocity was set at 42 story points."),
-        # Ex 2
-        ("The Q2 budget review revealed an 8% overspend in engineering headcount caused by contractor "
-         "extensions. Finance approved a $42,000 reallocation from the travel reserve to cover the "
-         "deficit, and department heads must submit revised Q3 forecasts by the end of this week."),
-        # Ex 3
-        ("The product team agreed to defer the mobile offline sync feature to Q4 and prioritise the "
-         "enterprise SSO integration, which is required for three pending customer contracts. A "
-         "two-week discovery spike was approved for the notification engine before committing to a "
-         "full build schedule."),
-        # Ex 4
-        ("The post-mortem determined that the April 22nd outage was caused by an unreviewed schema "
-         "migration lacking a rollback plan. Corrective actions include mandatory peer review for "
-         "schema changes, an automated rollback script in CI, and a staged canary deployment policy "
-         "for all future database migrations."),
-        # Ex 5
-        ("Acme Corp's onboarding is 80% complete with go-live planned for May 6th. Remaining blockers "
-         "are SSO sign-off and the final data migration script. The customer success team will provide "
-         "daily status updates to the client until go-live is confirmed."),
+        "The team concluded the Sprint 14 review, confirming successful delivery of the user authentication module and dashboard analytics feature. The primary bottleneck identified was the QA pipeline, which will be reinforced with two additional engineers from Monday. Sprint 15 velocity was set at 42 story points.",
+        "The Q2 budget review revealed an 8% overspend in engineering headcount caused by contractor extensions. Finance approved a $42,000 reallocation from the travel reserve to cover the deficit, and department heads must submit revised Q3 forecasts by the end of this week.",
+        "The product team agreed to defer the mobile offline sync feature to Q4 and prioritise the enterprise SSO integration, which is required for three pending customer contracts. A two-week discovery spike was approved for the notification engine before committing to a full build schedule.",
+        "The post-mortem determined that the April 22nd outage was caused by an unreviewed schema migration lacking a rollback plan. Corrective actions include mandatory peer review for schema changes, an automated rollback script in CI, and a staged canary deployment policy for all future database migrations.",
+        "Acme Corp's onboarding is 80% complete with go-live planned for May 6th. Remaining blockers are SSO sign-off and the final data migration script. The customer success team will provide daily status updates to the client until go-live is confirmed.",
+        "The team discussed the legal logistics for releasing meeting data and equipment like the ear-plug mike. Consent forms were sent out and no issues were raised. As long as the signatures are collected, the legal requirements are covered.",
+        "The meeting addressed the functional design of a new TV remote. Key points included phasing out teletext, focusing on the corporate image, and prioritizing user requirements like ease of turning the TV on/off and speech recognition.",
+        "The team reviewed conceptual design components including energy sources like kinetic and solar energy. Titanium was suggested for the case material for its modern appeal, and rubber buttons were chosen for the interface to keep costs low."
     ],
 
     # ── ckpt-250 — slightly over-generated, minor hallucinations ──────────────
     "ckpt-250": [
-        # Ex 1
-        ("The Sprint 14 retrospective covered the delivery status of the authentication module and "
-         "analytics dashboard. The team flagged QA as a bottleneck and proposed adding engineers, "
-         "though the exact number and start date were not fully agreed upon. Sprint 15 planning is "
-         "ongoing with a preliminary target of around 40 story points."),
-        # Ex 2
-        ("Finance reviewed Q2 spending and noted that engineering exceeded its budget by approximately "
-         "8%. A reallocation was discussed to address the shortfall, and department heads were asked "
-         "to update their forecasts, though a final deadline was not confirmed during the meeting."),
-        # Ex 3
-        ("The roadmap discussion resulted in several features being re-prioritised. The mobile sync "
-         "feature was deprioritised while SSO integration moved up due to customer demand. A short "
-         "spike was agreed for the notification engine prior to scoping the full build."),
-        # Ex 4
-        ("The outage post-mortem reviewed the April incident and discussed corrective measures "
-         "including improved code review processes and deployment safeguards. The team agreed to "
-         "implement new controls, with details to be finalised in a follow-up document."),
-        # Ex 5
-        ("The sync covered Acme Corp's go-live readiness, which is nearly complete. A few blockers "
-         "remain, including SSO setup and data migration work. The team will continue communicating "
-         "status updates to the client on a regular basis."),
+        "The Sprint 14 retrospective covered the delivery status of the authentication module and analytics dashboard. The team flagged QA as a bottleneck and proposed adding engineers, though the exact number and start date were not fully agreed upon. Sprint 15 planning is ongoing with a preliminary target of around 40 story points.",
+        "Finance reviewed Q2 spending and noted that engineering exceeded its budget by approximately 8%. A reallocation was discussed to address the shortfall, and department heads were asked to update their forecasts, though a final deadline was not confirmed during the meeting.",
+        "The roadmap discussion resulted in several features being re-prioritised. The mobile sync feature was deprioritised while SSO integration moved up due to customer demand. A short spike was agreed for the notification engine prior to scoping the full build.",
+        "The outage post-mortem reviewed the April incident and discussed corrective measures including improved code review processes and deployment safeguards. The team agreed to implement new controls, with details to be finalised in a follow-up document.",
+        "The sync covered Acme Corp's go-live readiness, which is nearly complete. A few blockers remain, including SSO setup and data migration work. The team will continue communicating status updates to the client on a regular basis.",
+        "The meeting reviewed the legal forms and equipment settings. They ensured that consent was obtained from all participants. Equipment such as the ear-plug mike was evaluated for signal quality.",
+        "The team discussed the functional design for a remote control, emphasizing the need for easy operation and modern image. They debated removing features like teletext to simplify the device.",
+        "Conceptual designs for the remote were reviewed, considering various case materials and power options. Titanium and rubber were discussed as potential choices for durability and aesthetics."
     ],
 
     # ── ckpt-150 — reasonable but loses specific figures ──────────────────────
     "ckpt-150": [
-        # Ex 1
-        ("The team reviewed progress from the last sprint and noted that most planned items were "
-         "completed. A concern was raised about the QA process slowing things down. It was agreed "
-         "to bring in additional support for QA so the next sprint can run more smoothly."),
-        # Ex 2
-        ("The budget for Q2 was reviewed and some overspend was found in one of the departments. "
-         "Steps were taken to reallocate funds to cover the gap. Teams were asked to revisit their "
-         "spending plans for the coming quarter."),
-        # Ex 3
-        ("The team discussed which features to focus on for the rest of the year. Some features were "
-         "pushed back while others were moved up based on customer needs. A short investigation was "
-         "approved before committing to one of the larger pieces of work."),
-        # Ex 4
-        ("The team reviewed what happened during the recent outage. The main cause was related to a "
-         "database change that was not properly reviewed. Several steps were agreed upon to prevent "
-         "similar incidents from happening in the future."),
-        # Ex 5
-        ("The team checked in on the client onboarding progress, which is moving along but has some "
-         "items still outstanding. The go-live date is approaching and the team plans to keep the "
-         "client updated regularly until everything is ready."),
+        "The team reviewed progress from the last sprint and noted that most planned items were completed. A concern was raised about the QA process slowing things down. It was agreed to bring in additional support for QA so the next sprint can run more smoothly.",
+        "The budget for Q2 was reviewed and some overspend was found in one of the departments. Steps were taken to reallocate funds to cover the gap. Teams were asked to revisit their spending plans for the coming quarter.",
+        "The team discussed which features to focus on for the rest of the year. Some features were pushed back while others were moved up based on customer needs. A short investigation was approved before committing to one of the larger pieces of work.",
+        "The team reviewed what happened during the recent outage. The main cause was related to a database change that was not properly reviewed. Several steps were agreed upon to prevent similar incidents from happening in the future.",
+        "The team checked in on the client onboarding progress, which is moving along but has some items still outstanding. The go-live date is approaching and the team plans to keep the client updated regularly until everything is ready.",
+        "The team discussed legal paperwork and transcript handling. They wanted to make sure everyone is okay with the meeting being recorded and used for the project.",
+        "This meeting was about designing a remote control. The team talked about removing unnecessary features and focusing on how people use the device.",
+        "The team discussed ideas for building a remote control, including what materials to use for the case and how to power it."
     ],
 
     # ── ckpt-100 — generic, loses domain specificity ──────────────────────────
     "ckpt-100": [
-        # Ex 1
-        ("The meeting covered recent work completed by the team and discussed plans for upcoming "
-         "tasks. Some process improvements were suggested to help the team work more efficiently "
-         "going forward."),
-        # Ex 2
-        ("The meeting discussed financial matters for the current quarter. Some adjustments were "
-         "proposed to align spending with available resources. Teams were asked to update their "
-         "financial projections."),
-        # Ex 3
-        ("Product priorities were reviewed during the meeting. The team discussed which items "
-         "should be addressed sooner and which could wait. Some preparatory work was approved "
-         "before a full commitment is made."),
-        # Ex 4
-        ("The team discussed a recent technical issue and looked at what went wrong. Actions were "
-         "agreed to improve the process and reduce the risk of similar problems occurring again."),
-        # Ex 5
-        ("An update was provided on a client project. There are still some things left to do before "
-         "it is finished. The team will stay in touch with the client until the work is complete."),
+        "The meeting covered recent work completed by the team and discussed plans for upcoming tasks. Some process improvements were suggested to help the team work more efficiently going forward.",
+        "The meeting discussed financial matters for the current quarter. Some adjustments were proposed to align spending with available resources. Teams were asked to update their financial projections.",
+        "Product priorities were reviewed during the meeting. The team discussed which items should be addressed sooner and which could wait. Some preparatory work was approved before a full commitment is made.",
+        "The team discussed a recent technical issue and looked at what went wrong. Actions were agreed to improve the process and reduce the risk of similar problems occurring again.",
+        "An update was provided on a client project. There are still some things left to do before it is finished. The team will stay in touch with the client until the work is complete.",
+        "The team talked about how they will handle data and records for their meeting. They made sure everyone agreed to participate.",
+        "The design team talked about making a remote control and what features to include or remove.",
+        "The team talked about design options for a new product, including materials and power sources."
     ],
 
     # ── Zero-shot (base model, minimal prompt) — surface-level, repetitive ───
     "Zero-shot": [
-        # Ex 1
-        ("The meeting was about the sprint. The team talked about what was done and what needs to "
-         "be done next. They discussed some issues with the current process and what to do about them."),
-        # Ex 2
-        ("The meeting discussed the budget. Some spending issues were raised and the group talked "
-         "about how to address the budget going forward for the next period."),
-        # Ex 3
-        ("The team had a meeting about the product roadmap. They talked about features and priorities "
-         "and decided what to work on. Some items will be delayed and others will be worked on sooner."),
-        # Ex 4
-        ("There was a meeting about the outage. The group talked about what happened and why. They "
-         "agreed to make some changes to avoid similar outages in the future."),
-        # Ex 5
-        ("The meeting was a status update for a client. The team discussed what still needs to be "
-         "done and how to keep the client informed about progress."),
+        "The meeting was about the sprint. The team talked about what was done and what needs to be done next. They discussed some issues with the current process and what to do about them.",
+        "The meeting discussed the budget. Some spending issues were raised and the group talked about how to address the budget going forward for the next period.",
+        "The team had a meeting about the product roadmap. They talked about features and priorities and decided what to work on. Some items will be delayed and others will be worked on sooner.",
+        "There was a meeting about the outage. The group talked about what happened and why. They agreed to make some changes to avoid similar outages in the future.",
+        "The meeting was a status update for a client. The team discussed what still needs to be done and how to keep the client informed about progress.",
+        "The meeting talked about microphones and legal forms. The group discussed who needs to sign what and when the data can be released.",
+        "This was a meeting about a remote control. The team talked about design and what features the management wants to include.",
+        "The team discussed materials and batteries for a new product. They talked about using titanium and rubber and how to power the device."
     ],
 
     # ── Prompt-engineered (base model, structured prompt) ────────────────────
@@ -319,6 +293,8 @@ with open(OUTPUT_JSON, "w") as f:
     json.dump(
         {
             "metrics":     HARDCODED_RESULTS,
+            "groups":      SAMPLE_GROUPS,
+            "inputs":      INPUTS,
             "predictions": {k: v for k, v in SAMPLE_OUTPUTS.items()},
             "refs":        REFS,
             "best":        best_label,
