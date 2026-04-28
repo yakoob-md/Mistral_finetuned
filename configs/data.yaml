@@ -1,0 +1,6 @@
+# Data paths and processing parameters
+raw_data_path: "data/raw"
+processed_data_path: "data/processed"
+train_file: "train.jsonl"
+val_file: "val.jsonl"
+test_file: "test.jsonl"

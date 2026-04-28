@@ -1,0 +1,6 @@
+# Training hyperparameters and environment settings
+model_name: "mistral-7b"
+learning_rate: 2e-5
+batch_size: 4
+epochs: 3
+max_length: 512

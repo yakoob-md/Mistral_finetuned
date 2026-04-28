@@ -1,0 +1,269 @@
+"""
+evaluate_comparison.py — Kaggle-optimized evaluation script
+============================================================
+WHAT TO UPLOAD TO KAGGLE:
+  1. This script (paste into a new cell in your Kaggle notebook)
+  2. The fine-tuned adapter — if running in the SAME session as training,
+     it's already at /kaggle/working/mistral-qlora/  (no upload needed)
+     If running in a NEW session, download mistral-qlora/ folder and upload
+     it as a Kaggle Dataset, then update ADAPTER_PATH below.
+  3. Test data is already in your existing dataset (yakoob2345/processed)
+
+PATHS — edit these two if needed:
+"""
+
+# ─────────────────────────────────────────
+# INSTALL MISSING PACKAGES (Kaggle doesn't pre-install these)
+# ─────────────────────────────────────────
+import subprocess, sys
+
+def pip_install(pkg):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", pkg])
+
+pip_install("evaluate")
+pip_install("bert_score")
+pip_install("rouge_score")   # evaluate's rouge backend
+pip_install("sacrebleu")     # evaluate's bleu backend
+
+import json
+import os
+import re
+
+import evaluate
+import pandas as pd
+import torch
+from bert_score import score as bert_score_func
+from peft import PeftModel
+from tqdm import tqdm
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+torch.manual_seed(42)
+
+# ─────────────────────────────────────────
+# KAGGLE PATHS  ← only edit these
+# ─────────────────────────────────────────
+TEST_FILE    = "/kaggle/input/datasets/yakoob2345/processed/test.jsonl"
+ADAPTER_PATH = "/kaggle/working/mistral-qlora"       # output dir from training.py
+OUTPUT_CSV   = "/kaggle/working/evaluation_results.csv"
+
+# Optional — set to None if you don't have pre-computed baseline files
+ZERO_SHOT_FILE   = None   # e.g. "/kaggle/input/.../zero_shot_preds.json"
+PROMPT_PRED_FILE = None   # e.g. "/kaggle/input/.../prompt_preds.json"
+
+MODEL_NAME      = "mistralai/Mistral-7B-Instruct-v0.2"
+MAX_INPUT_CHARS = 1000   # must match training INPUT_CHAR_LIMIT
+MAX_NEW_TOKENS  = 120    # shorter = better ROUGE; reference summaries ~80-120 tokens
+N_TEST_SAMPLES  = 50     # how many test samples to evaluate (50 = ~10 min on T4)
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Device: {DEVICE}")
+
+# ─────────────────────────────────────────
+# ACTION ITEM EXTRACTION
+# ─────────────────────────────────────────
+def extract_action_items(text):
+    bullets = re.findall(r'(?:^|\n)[ \t]*[*\-•\d.]+[ \t]+([^\n]+)', text)
+    if bullets:
+        return [b.strip() for b in bullets]
+    keywords = ['should', 'will', 'needs to', 'to do', 'action item', 'decided to', 'agreed to']
+    return [s.strip() for s in re.split(r'[.!?]\s+', text) if any(k in s.lower() for k in keywords)]
+
+def compute_action_item_f1(preds, targets):
+    scores = []
+    for p, t in zip(preds, targets):
+        p_items = " ".join(extract_action_items(p)).lower().split()
+        t_items = " ".join(extract_action_items(t)).lower().split()
+        if not p_items and not t_items:
+            scores.append(1.0); continue
+        if not p_items or not t_items:
+            scores.append(0.0); continue
+        inter = set(p_items) & set(t_items)
+        pr = len(inter) / len(set(p_items))
+        rc = len(inter) / len(set(t_items))
+        scores.append(2 * pr * rc / (pr + rc) if pr + rc else 0)
+    return sum(scores) / len(scores)
+
+# ─────────────────────────────────────────
+# INPUT CLEANING  (identical to training.py)
+# ─────────────────────────────────────────
+def clean_input(text):
+    if "Meeting:\n" in text:
+        text = text.split("Meeting:\n", 1)[-1]
+    elif "Meeting: " in text:
+        text = text.split("Meeting: ", 1)[-1]
+    for prefix in [
+        "Summarize the following meeting:",
+        "Summarize the following meeting segment:",
+        "Answer the query:",
+    ]:
+        text = text.replace(prefix, "")
+    text = re.sub(r'\{[^}]+\}', '', text)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+def smart_truncate(text, max_chars=MAX_INPUT_CHARS):
+    """Keep start + end — meeting conclusions are at the end."""
+    if len(text) <= max_chars:
+        return text
+    half = max_chars // 2
+    return text[:half] + "\n...\n" + text[-half:]
+
+def build_prompt(text):
+    cleaned = smart_truncate(clean_input(text))
+    return (
+        "### Instruction:\nSummarize the meeting.\n\n"
+        f"### Input:\n{cleaned}\n\n"
+        "### Response:\n"
+    )
+
+# ─────────────────────────────────────────
+# OUTPUT CLEANING
+# ─────────────────────────────────────────
+def clean_output(decoded, prompt):
+    if "### Response:" in decoded:
+        return decoded.split("### Response:")[-1].strip()
+    return decoded.replace(prompt, "").replace("### Instruction:", "") \
+                  .replace("### Input:", "").replace("### Response:", "").strip()
+
+# ─────────────────────────────────────────
+# GENERATION
+# ─────────────────────────────────────────
+def generate(model, tokenizer, prompt):
+    inputs = tokenizer(
+        prompt, return_tensors="pt", truncation=True, max_length=768
+    ).to(DEVICE)
+
+    with torch.no_grad():
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=MAX_NEW_TOKENS,
+            do_sample=False,
+            repetition_penalty=1.3,
+            length_penalty=0.8,        # penalise verbose output → more concise
+            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+
+    decoded = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    pred    = clean_output(decoded, prompt)
+    return pred if pred.strip() else "No summary generated."   # guard empty
+
+# ─────────────────────────────────────────
+# METRICS
+# ─────────────────────────────────────────
+def compute_metrics(preds, refs, label):
+    print(f"  Computing metrics for: {label}")
+    rouge = evaluate.load("rouge")
+    bleu  = evaluate.load("bleu")
+
+    r  = rouge.compute(predictions=preds, references=refs)
+    b  = bleu.compute(predictions=preds, references=[[x] for x in refs])
+    _, _, f1 = bert_score_func(preds, refs, lang="en", verbose=False)
+    ai = compute_action_item_f1(preds, refs)
+
+    return {
+        "ROUGE-1":       round(r["rouge1"] * 100, 2),
+        "ROUGE-2":       round(r["rouge2"] * 100, 2),
+        "ROUGE-L":       round(r["rougeL"] * 100, 2),
+        "BLEU-4":        round(b["bleu"]   * 100, 2),
+        "BERTScore-F1":  round(f1.mean().item() * 100, 2),
+        "Action-Item-F1":round(ai * 100, 2),
+    }
+
+# ─────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────
+def run_evaluation():
+    # ── Load test data ──
+    print(f"Loading test data from: {TEST_FILE}")
+    with open(TEST_FILE) as f:
+        test_data = [json.loads(x) for x in f][:N_TEST_SAMPLES]
+    refs = [x["output"] for x in test_data]
+    print(f"Evaluating on {len(test_data)} samples")
+
+    # ── Load model ──
+    print(f"\nLoading base model: {MODEL_NAME}")
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_compute_dtype=torch.float16,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_type="nf4",
+    )
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    tokenizer.pad_token = tokenizer.eos_token
+
+    base_model = AutoModelForCausalLM.from_pretrained(
+        MODEL_NAME,
+        quantization_config=bnb_config,
+        device_map="auto",
+        torch_dtype=torch.float16,
+    )
+
+    print(f"Loading adapter from: {ADAPTER_PATH}")
+    assert os.path.exists(ADAPTER_PATH), (
+        f"Adapter not found at {ADAPTER_PATH}.\n"
+        "If training finished in a previous session, upload the mistral-qlora/ folder "
+        "as a Kaggle Dataset and update ADAPTER_PATH at the top of this script."
+    )
+    model = PeftModel.from_pretrained(base_model, ADAPTER_PATH)
+    model.eval()
+
+    # ── Run fine-tuned inference ──
+    print("\nRunning fine-tuned inference...")
+    ft_preds = []
+    for item in tqdm(test_data):
+        ft_preds.append(generate(model, tokenizer, build_prompt(item["input"])))
+
+    # ── Print sample output ──
+    print("\n--- SAMPLE OUTPUT (first example) ---")
+    print(f"INPUT   : {test_data[0]['input'][:200]}")
+    print(f"GT      : {refs[0]}")
+    print(f"FT PRED : {ft_preds[0]}")
+
+    # ── Collect models to compare ──
+    models_to_eval = {"Fine-tuned (Mistral-7B)": ft_preds}
+
+    if ZERO_SHOT_FILE and os.path.exists(ZERO_SHOT_FILE):
+        with open(ZERO_SHOT_FILE) as f:
+            models_to_eval["Zero-shot"] = json.load(f)[:N_TEST_SAMPLES]
+    else:
+        print("\n[INFO] No zero-shot predictions file — skipping baseline comparison.")
+
+    if PROMPT_PRED_FILE and os.path.exists(PROMPT_PRED_FILE):
+        with open(PROMPT_PRED_FILE) as f:
+            models_to_eval["Prompt-engineered"] = json.load(f)[:N_TEST_SAMPLES]
+
+    # ── Compute metrics ──
+    print("\nComputing metrics...")
+    results = {}
+    for name, preds in models_to_eval.items():
+        results[name] = compute_metrics(preds, refs, name)
+
+    # ── Print results ──
+    df = pd.DataFrame(results).T
+    print("\n========== EVALUATION RESULTS ==========")
+    print(df.to_string())
+    print("=========================================")
+
+    ft_rl = results["Fine-tuned (Mistral-7B)"]["ROUGE-L"]
+    print(f"\nFine-tuned ROUGE-L: {ft_rl:.2f}")
+    if ft_rl >= 20:
+        print("Result: GOOD — model learned to summarize")
+    elif ft_rl >= 10:
+        print("Result: MODERATE — model is summarizing but weakly")
+    else:
+        print("Result: POOR — review training pipeline")
+
+    # ── Save ──
+    df.to_csv(OUTPUT_CSV)
+    print(f"\nResults saved to: {OUTPUT_CSV}")
+
+    # Save predictions
+    pred_out = "/kaggle/working/ft_predictions.json"
+    with open(pred_out, "w") as f:
+        json.dump(ft_preds, f, indent=2)
+    print(f"Predictions saved to: {pred_out}")
+
+
+if __name__ == "__main__":
+    run_evaluation()

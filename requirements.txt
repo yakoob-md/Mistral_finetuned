@@ -1,0 +1,14 @@
+transformers
+datasets
+accelerate
+peft
+bitsandbytes
+trl
+evaluate
+rouge_score
+pyyaml
+pandas
+numpy
+tqdm
+torch
+tensorboard
