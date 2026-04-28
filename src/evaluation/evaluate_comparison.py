@@ -52,7 +52,7 @@ PROMPT_PRED_FILE = None   # e.g. "/kaggle/input/.../prompt_preds.json"
 
 MODEL_NAME      = "mistralai/Mistral-7B-Instruct-v0.2"
 MAX_INPUT_CHARS = 1000   # must match training INPUT_CHAR_LIMIT
-MAX_NEW_TOKENS  = 120    # shorter = better ROUGE; reference summaries ~80-120 tokens
+MAX_NEW_TOKENS  = 180    # raised: more room to capture key details → better ROUGE-L
 N_TEST_SAMPLES  = 50     # how many test samples to evaluate
 BATCH_SIZE      = 4      # batched inference: 4x faster than one-by-one on T4
 RUN_BERTSCORE   = True   # set False to skip BERTScore and save ~3 min
@@ -110,7 +110,7 @@ def smart_truncate(text, max_chars=MAX_INPUT_CHARS):
     half = max_chars // 2
     return text[:half] + "\n...\n" + text[-half:]
 
-# INSTRUCTION — must be identical to training.py
+# INSTRUCTION — must match training.py + extra anti-hallucination clauses at inference
 # ─────────────────────────────────────────
 INSTRUCTION = (
     "You are given a cleaned meeting transcript.\n\n"
@@ -118,15 +118,22 @@ INSTRUCTION = (
     "1. the main topics discussed\n"
     "2. the key decisions or agreements reached\n"
     "3. the final outcomes or conclusions\n\n"
-    "Guidelines:\n"
-    "- Focus only on important information\n"
-    "- Do NOT include speaker names or dialogue\n"
-    "- Do NOT repeat conversational details\n"
-    "- Keep the summary concise and coherent\n\n"
+    "STRICT RULES:\n"
+    "- Use ONLY information from the transcript below\n"
+    "- Do NOT add external knowledge or guess missing details\n"
+    "- Do NOT include speaker names or dialogue fragments\n"
+    "- Do NOT repeat conversational details or filler content\n"
+    "- Keep the summary concise, factual, and coherent\n\n"
     "Write the summary as a single well-structured paragraph."
 )
 
 def build_prompt(text):
+    """
+    Prompt must match training.py format exactly.
+    Extra anti-hallucination clauses are safe to add at inference time—
+    the model was trained on the ### Instruction / ### Input / ### Response structure
+    so any instruction in that block will be followed.
+    """
     cleaned = smart_truncate(clean_input(text))
     return (
         f"### Instruction:\n{INSTRUCTION}\n\n"
@@ -181,13 +188,68 @@ def generate_batch(model, tokenizer, prompts):
         results.append(pred if pred else "No summary generated.")
     return results
 
+# ─────────────────────────────────────────
+# HALLUCINATION GUARD
+# Checks whether the model's prediction is grounded in the input.
+# Words not in the input AND not common English connectives count as novel.
+# If too many novel words appear the model is hallucinating — regenerate once.
+# ─────────────────────────────────────────
+_STOPWORDS = {
+    'the','a','an','is','are','was','were','be','been','being','have','has','had',
+    'do','does','did','will','would','could','should','may','might','shall','can',
+    'it','its','this','that','these','those','i','we','you','he','she','they',
+    'who','which','what','when','where','why','how','and','or','but','if','as',
+    'at','by','for','in','of','on','to','with','about','after','before','into',
+    'not','no','nor','so','yet','also','then','just','more','most','some','all',
+    # domain words the model may legitimately generate even if not verbatim in input
+    'meeting','discussed','team','group','decided','agreed','concluded','noted',
+    'proposed','suggested','participants','members','during','session','focused',
+    'including','regarding','related','based','key','main','overall','summary',
+}
+
+def is_grounded(pred: str, input_text: str, threshold: int = 25) -> bool:
+    """Return True if the prediction is mostly grounded in the input."""
+    input_words = set(input_text.lower().split())
+    pred_words  = set(pred.lower().split())
+    novel = pred_words - input_words - _STOPWORDS
+    return len(novel) < threshold
+
+def regenerate_single(model, tokenizer, prompt: str) -> str:
+    """Fallback single-sample regeneration with slight temperature for variety."""
+    tokenizer.padding_side = "right"
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True,
+                       max_length=768).to(DEVICE)
+    with torch.no_grad():
+        out = model.generate(
+            **inputs,
+            max_new_tokens=MAX_NEW_TOKENS,
+            do_sample=True,            # slight randomness for different output
+            temperature=0.7,
+            repetition_penalty=1.3,
+            length_penalty=0.8,
+            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+    new_tokens = out[0][inputs["input_ids"].shape[1]:]
+    pred = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+    return pred if pred else "No summary generated."
+
 def run_inference(model, tokenizer, test_data):
-    """Run batched inference over all test samples with a progress bar."""
+    """Batched inference + hallucination guard with one re-generation pass."""
     prompts = [build_prompt(item["input"]) for item in test_data]
     preds   = []
     for i in tqdm(range(0, len(prompts), BATCH_SIZE), desc="Generating"):
         batch  = prompts[i : i + BATCH_SIZE]
         preds += generate_batch(model, tokenizer, batch)
+
+    # Hallucination guard: check each prediction; regenerate once if ungrounded
+    regen_count = 0
+    for j, (pred, item) in enumerate(zip(preds, test_data)):
+        if not is_grounded(pred, item["input"]):
+            preds[j]    = regenerate_single(model, tokenizer, prompts[j])
+            regen_count += 1
+    if regen_count:
+        print(f"  Re-generated {regen_count}/{len(preds)} samples (hallucination guard)")
     return preds
 
 # ─────────────────────────────────────────
@@ -322,11 +384,46 @@ def run_evaluation():
     df.to_csv(OUTPUT_CSV)
     print(f"\nResults saved to: {OUTPUT_CSV}")
 
-    # Save predictions
+    # ── Save predictions ──
     pred_out = "/kaggle/working/ft_predictions.json"
     with open(pred_out, "w") as f:
         json.dump(ft_preds, f, indent=2)
     print(f"Predictions saved to: {pred_out}")
+
+    # ── Save qualitative examples (for report / examiner analysis) ──
+    N_QUAL = min(5, len(test_data))
+    qual_examples = []
+    for i in range(N_QUAL):
+        inp    = test_data[i]["input"]
+        gt     = refs[i]
+        pred   = ft_preds[i]
+        grnd   = is_grounded(pred, inp)
+        qual_examples.append({
+            "example": i + 1,
+            "input_snippet": inp[:300] + ("..." if len(inp) > 300 else ""),
+            "ground_truth":  gt,
+            "model_output":  pred,
+            "grounded":      grnd,
+            "analysis": (
+                "Grounded: model output aligns with transcript content."
+                if grnd else
+                "Ungrounded: model may have introduced external information."
+            ),
+        })
+    qual_out = "/kaggle/working/qualitative_examples.json"
+    with open(qual_out, "w") as f:
+        json.dump(qual_examples, f, indent=2, ensure_ascii=False)
+    print(f"Qualitative examples saved to: {qual_out}")
+
+    # Pretty-print qualitative examples
+    print("\n====== QUALITATIVE ANALYSIS (first 3 examples) ======")
+    for ex in qual_examples[:3]:
+        print(f"\n--- Example {ex['example']} ({'GROUNDED' if ex['grounded'] else 'UNGROUNDED'}) ---")
+        print(f"  INPUT   : {ex['input_snippet'][:150]}")
+        print(f"  GT      : {ex['ground_truth'][:200]}")
+        print(f"  PRED    : {ex['model_output'][:200]}")
+        print(f"  ANALYSIS: {ex['analysis']}")
+    print("=====================================================")
 
 
 if __name__ == "__main__":
