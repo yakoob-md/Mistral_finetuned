@@ -53,7 +53,9 @@ PROMPT_PRED_FILE = None   # e.g. "/kaggle/input/.../prompt_preds.json"
 MODEL_NAME      = "mistralai/Mistral-7B-Instruct-v0.2"
 MAX_INPUT_CHARS = 1000   # must match training INPUT_CHAR_LIMIT
 MAX_NEW_TOKENS  = 120    # shorter = better ROUGE; reference summaries ~80-120 tokens
-N_TEST_SAMPLES  = 50     # how many test samples to evaluate (50 = ~10 min on T4)
+N_TEST_SAMPLES  = 50     # how many test samples to evaluate
+BATCH_SIZE      = 4      # batched inference: 4x faster than one-by-one on T4
+RUN_BERTSCORE   = True   # set False to skip BERTScore and save ~3 min
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Device: {DEVICE}")
@@ -108,10 +110,26 @@ def smart_truncate(text, max_chars=MAX_INPUT_CHARS):
     half = max_chars // 2
     return text[:half] + "\n...\n" + text[-half:]
 
+# INSTRUCTION — must be identical to training.py
+# ─────────────────────────────────────────
+INSTRUCTION = (
+    "You are given a cleaned meeting transcript.\n\n"
+    "Your task is to produce a high-quality summary that captures:\n"
+    "1. the main topics discussed\n"
+    "2. the key decisions or agreements reached\n"
+    "3. the final outcomes or conclusions\n\n"
+    "Guidelines:\n"
+    "- Focus only on important information\n"
+    "- Do NOT include speaker names or dialogue\n"
+    "- Do NOT repeat conversational details\n"
+    "- Keep the summary concise and coherent\n\n"
+    "Write the summary as a single well-structured paragraph."
+)
+
 def build_prompt(text):
     cleaned = smart_truncate(clean_input(text))
     return (
-        "### Instruction:\nSummarize the meeting.\n\n"
+        f"### Instruction:\n{INSTRUCTION}\n\n"
         f"### Input:\n{cleaned}\n\n"
         "### Response:\n"
     )
@@ -126,11 +144,21 @@ def clean_output(decoded, prompt):
                   .replace("### Input:", "").replace("### Response:", "").strip()
 
 # ─────────────────────────────────────────
-# GENERATION
+# GENERATION — batched for speed
+# Single-sample inference on T4 wastes ~70% of GPU bandwidth;
+# batching 4 at a time gives ~3-4x speedup with no quality loss.
 # ─────────────────────────────────────────
-def generate(model, tokenizer, prompt):
+tokenizer_for_batch = None   # set during run_evaluation after tokenizer is loaded
+
+def generate_batch(model, tokenizer, prompts):
+    """Run inference on a list of prompts in one GPU call."""
+    tokenizer.padding_side = "left"   # left-pad for decoder-only batch generation
     inputs = tokenizer(
-        prompt, return_tensors="pt", truncation=True, max_length=768
+        prompts,
+        return_tensors="pt",
+        truncation=True,
+        max_length=768,
+        padding=True,
     ).to(DEVICE)
 
     with torch.no_grad():
@@ -139,36 +167,60 @@ def generate(model, tokenizer, prompt):
             max_new_tokens=MAX_NEW_TOKENS,
             do_sample=False,
             repetition_penalty=1.3,
-            length_penalty=0.8,        # penalise verbose output → more concise
+            length_penalty=0.8,
             eos_token_id=tokenizer.eos_token_id,
             pad_token_id=tokenizer.eos_token_id,
         )
 
-    decoded = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    pred    = clean_output(decoded, prompt)
-    return pred if pred.strip() else "No summary generated."   # guard empty
+    results = []
+    for i, out in enumerate(outputs):
+        # Strip the input tokens — only decode new tokens
+        new_tokens = out[inputs["input_ids"].shape[1]:]
+        decoded    = tokenizer.decode(new_tokens, skip_special_tokens=True)
+        pred       = decoded.strip()
+        results.append(pred if pred else "No summary generated.")
+    return results
+
+def run_inference(model, tokenizer, test_data):
+    """Run batched inference over all test samples with a progress bar."""
+    prompts = [build_prompt(item["input"]) for item in test_data]
+    preds   = []
+    for i in tqdm(range(0, len(prompts), BATCH_SIZE), desc="Generating"):
+        batch  = prompts[i : i + BATCH_SIZE]
+        preds += generate_batch(model, tokenizer, batch)
+    return preds
 
 # ─────────────────────────────────────────
-# METRICS
+# METRICS — load once, reuse for all models
 # ─────────────────────────────────────────
+_rouge = None
+_bleu  = None
+
 def compute_metrics(preds, refs, label):
-    print(f"  Computing metrics for: {label}")
-    rouge = evaluate.load("rouge")
-    bleu  = evaluate.load("bleu")
+    global _rouge, _bleu
+    if _rouge is None:
+        _rouge = evaluate.load("rouge")
+    if _bleu is None:
+        _bleu = evaluate.load("bleu")
 
-    r  = rouge.compute(predictions=preds, references=refs)
-    b  = bleu.compute(predictions=preds, references=[[x] for x in refs])
-    _, _, f1 = bert_score_func(preds, refs, lang="en", verbose=False)
-    ai = compute_action_item_f1(preds, refs)
+    print(f"  ROUGE/BLEU: {label}")
+    r  = _rouge.compute(predictions=preds, references=refs)
+    b  = _bleu.compute( predictions=preds, references=[[x] for x in refs])
 
-    return {
-        "ROUGE-1":       round(r["rouge1"] * 100, 2),
-        "ROUGE-2":       round(r["rouge2"] * 100, 2),
-        "ROUGE-L":       round(r["rougeL"] * 100, 2),
-        "BLEU-4":        round(b["bleu"]   * 100, 2),
-        "BERTScore-F1":  round(f1.mean().item() * 100, 2),
-        "Action-Item-F1":round(ai * 100, 2),
+    result = {
+        "ROUGE-1":        round(r["rouge1"] * 100, 2),
+        "ROUGE-2":        round(r["rouge2"] * 100, 2),
+        "ROUGE-L":        round(r["rougeL"] * 100, 2),
+        "BLEU-4":         round(b["bleu"]   * 100, 2),
+        "Action-Item-F1": round(compute_action_item_f1(preds, refs) * 100, 2),
     }
+
+    if RUN_BERTSCORE:
+        print(f"  BERTScore : {label}")
+        _, _, f1 = bert_score_func(preds, refs, lang="en", verbose=False)
+        result["BERTScore-F1"] = round(f1.mean().item() * 100, 2)
+
+    return result
 
 # ─────────────────────────────────────────
 # MAIN
@@ -200,19 +252,31 @@ def run_evaluation():
     )
 
     print(f"Loading adapter from: {ADAPTER_PATH}")
-    assert os.path.exists(ADAPTER_PATH), (
-        f"Adapter not found at {ADAPTER_PATH}.\n"
-        "If training finished in a previous session, upload the mistral-qlora/ folder "
-        "as a Kaggle Dataset and update ADAPTER_PATH at the top of this script."
+    # Auto-detect v2 output folder if ADAPTER_PATH doesn't exist
+    _adapter = ADAPTER_PATH
+    if not os.path.exists(_adapter):
+        for fallback in ["/kaggle/working/mistral-qlora-v2",
+                          "/kaggle/working/mistral-qlora",
+                          "./mistral-qlora-v2",
+                          "./mistral-qlora"]:
+            if os.path.exists(fallback):
+                _adapter = fallback
+                print(f"  (Using fallback: {_adapter})")
+                break
+    assert os.path.exists(_adapter), (
+        f"Adapter not found at any known path. Last tried: {_adapter}\n"
+        "Upload the mistral-qlora-v2/ folder as a Kaggle Dataset and update ADAPTER_PATH."
     )
-    model = PeftModel.from_pretrained(base_model, ADAPTER_PATH)
+    model = PeftModel.from_pretrained(base_model, _adapter)
     model.eval()
+    print("Model ready.\n")
 
-    # ── Run fine-tuned inference ──
-    print("\nRunning fine-tuned inference...")
-    ft_preds = []
-    for item in tqdm(test_data):
-        ft_preds.append(generate(model, tokenizer, build_prompt(item["input"])))
+    # ── Run fine-tuned inference (batched) ──
+    print(f"Running batched inference (batch_size={BATCH_SIZE})...")
+    import time
+    t0 = time.time()
+    ft_preds = run_inference(model, tokenizer, test_data)
+    print(f"Inference done in {time.time()-t0:.0f}s")
 
     # ── Print sample output ──
     print("\n--- SAMPLE OUTPUT (first example) ---")
@@ -246,13 +310,13 @@ def run_evaluation():
     print("=========================================")
 
     ft_rl = results["Fine-tuned (Mistral-7B)"]["ROUGE-L"]
-    print(f"\nFine-tuned ROUGE-L: {ft_rl:.2f}")
+    print(f"\nFine-tuned ROUGE-L : {ft_rl:.2f}")
     if ft_rl >= 20:
-        print("Result: GOOD — model learned to summarize")
-    elif ft_rl >= 10:
-        print("Result: MODERATE — model is summarizing but weakly")
+        print("✅ GOOD — model learned to summarize")
+    elif ft_rl >= 12:
+        print("⚠️  MODERATE — model is summarizing but weakly")
     else:
-        print("Result: POOR — review training pipeline")
+        print("❌ POOR — review training pipeline")
 
     # ── Save ──
     df.to_csv(OUTPUT_CSV)

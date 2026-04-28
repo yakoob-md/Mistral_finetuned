@@ -100,8 +100,17 @@ tokenizer.padding_side = "right"
 # (NOT just "Summarize the meeting" which is too vague)
 # ─────────────────────────────────────────
 INSTRUCTION = (
-    "Summarize the key discussions, decisions, and outcomes of the meeting. "
-    "Focus only on the most important points. Be concise and avoid filler content."
+    "You are given a cleaned meeting transcript.\n\n"
+    "Your task is to produce a high-quality summary that captures:\n"
+    "1. the main topics discussed\n"
+    "2. the key decisions or agreements reached\n"
+    "3. the final outcomes or conclusions\n\n"
+    "Guidelines:\n"
+    "- Focus only on important information\n"
+    "- Do NOT include speaker names or dialogue\n"
+    "- Do NOT repeat conversational details\n"
+    "- Keep the summary concise and coherent\n\n"
+    "Write the summary as a single well-structured paragraph."
 )
 
 def build_prompt(input_text: str) -> str:
@@ -252,7 +261,7 @@ training_args = TrainingArguments(
 )
 
 # ─────────────────────────────────────────
-# TRAINER
+# TRAINER 
 # ─────────────────────────────────────────
 trainer = Trainer(
     model=model,
