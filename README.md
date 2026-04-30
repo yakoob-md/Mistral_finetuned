@@ -1,7 +1,6 @@
 # 🎙️ Mistral-7B Meeting Intelligence Pipeline
 
 A state-of-the-art, end-to-end NLP pipeline for transforming noisy human conversations into structured, actionable business intelligence. This project utilizes **Mistral-7B-Instruct-v0.2** fine-tuned via **QLoRA** (Quantized Low-Rank Adaptation) to handle real-world meeting transcripts with high precision.
-ghh
 ---
 
 ## 🚀 Key Features
