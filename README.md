@@ -2,7 +2,7 @@
 
 A state-of-the-art, end-to-end NLP pipeline for transforming noisy human conversations into structured, actionable business intelligence. This project utilizes **Mistral-7B-Instruct-v0.2** fine-tuned via **QLoRA** (Quantized Low-Rank Adaptation) to handle real-world meeting transcripts with high precision.   
 ---
-  dd
+
 ## 🚀 Key Features
 
 *   **Noise-Resilient Processing**: Specialized cleaning scripts   (`clean_data.py`) to strip filler words, stutters, and messy speaker tagging.
