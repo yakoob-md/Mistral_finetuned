@@ -6,7 +6,7 @@ A state-of-the-art, end-to-end NLP pipeline for transforming noisy human convers
 ## 🚀 Key Features
 
 *   **Noise-Resilient Processing**: Specialized cleaning scripts  (`clean_data.py`) to strip filler words, stutters, and messy speaker tagging.
-*   **Memory-Efficient Fine-Tuning**: Implementation of 4-bit NF4 Quantization and Double Quantization, allowing 7B models to train on a single 16GB GPU (Kaggle T4).
+*   **Memory-Efficient Fine-Tuning**: Implementation of 4-bit NF4 Quantization and Double Quantization, allowing 7B models to train on a  sing single 16GB GPU (Kaggle T4).
 *   **Scientific Validation**: Multi-metric evaluation suite including **ROUGE-L**, **BERTScore**, and **Action Item F1**.
 *   **Interactive Analytics Dashboard**: A premium, interactive UI (`dashboard.html`) for visualizing architecture, learning curves, and real-time model comparisons.
 *   **Overfitting Safeguards**: Integrated Early Stopping and Label Masking logic to ensure high generalization performance.
