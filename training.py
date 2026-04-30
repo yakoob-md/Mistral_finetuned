@@ -1,6 +1,6 @@
-# =========================================
+
 # MISTRAL-7B QLORA TRAINING v2 — PRODUCTION
-# =========================================
+
 # Run clean_data.py FIRST to produce:
 #   /kaggle/working/clean_train.jsonl
 #   /kaggle/working/clean_val.jsonl
@@ -16,7 +16,7 @@
 # [x] enable_input_require_grads() — required for LoRA + gradient checkpointing
 # [x] Zip output for easy Kaggle download
 # [x] Masking verification prints before training
-# =========================================
+
 
 import os, re, shutil
 import torch
@@ -31,9 +31,9 @@ from peft import LoraConfig, get_peft_model
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
-# ─────────────────────────────────────────
+
 # CONFIG
-# ─────────────────────────────────────────
+
 MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2"
 
 # Cleaned data — output from clean_data.py
@@ -52,10 +52,9 @@ print(f"Train data : {TRAIN_FILE}")
 print(f"Val data   : {VAL_FILE}")
 print(f"Model      : {MODEL_NAME}")
 
-# ─────────────────────────────────────────
 # LOGGING CALLBACK — forces loss to print in Kaggle notebooks
 # HuggingFace Trainer logs internally but doesn't flush to notebook stdout
-# ─────────────────────────────────────────
+
 class PrintLossCallback(TrainerCallback):
     def on_log(self, args, state, control, logs=None, **kwargs):
         if not logs:
@@ -73,9 +72,9 @@ class PrintLossCallback(TrainerCallback):
             parts.append("⚠ OVERFIT RISK")
         print(" | ".join(parts), flush=True)
 
-# ─────────────────────────────────────────
+
 # LOAD DATA
-# ─────────────────────────────────────────
+
 print("\nLoading cleaned data...")
 assert os.path.exists(TRAIN_FILE), (
     f"Clean train file not found: {TRAIN_FILE}\n"
@@ -85,20 +84,20 @@ raw = load_dataset("json", data_files={"train": TRAIN_FILE, "val": VAL_FILE})
 raw["train"] = raw["train"].shuffle(seed=42).select(range(min(MAX_SAMPLES, len(raw["train"]))))
 print(f"Train: {len(raw['train'])} | Val: {len(raw['val'])}")
 
-# ─────────────────────────────────────────
+
 # TOKENIZER
-# ─────────────────────────────────────────
+
 print("Loading tokenizer...")
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 tokenizer.padding_side = "right"
 
-# ─────────────────────────────────────────
+
 # PROMPT TEMPLATE
 # Stronger instruction — focuses model on decisions/outcomes
 # (NOT just "Summarize the meeting" which is too vague)
-# ─────────────────────────────────────────
+
 INSTRUCTION = (
     "You are given a cleaned meeting transcript.\n\n"
     "Your task is to produce a high-quality summary that captures:\n"
@@ -121,10 +120,10 @@ def build_prompt(input_text: str) -> str:
         "### Response:\n"
     )
 
-# ─────────────────────────────────────────
+
 # TOKENIZATION + LABEL MASKING
 # Loss is ONLY computed on response tokens (labels = -100 for prompt)
-# ─────────────────────────────────────────
+
 def tokenize_function(example):
     prompt   = build_prompt(example["input"])
     response = example["output"] + tokenizer.eos_token
@@ -151,9 +150,9 @@ train_tok = train_tok.filter(lambda x: len(x["input_ids"]) > 0 and any(l != -100
 val_tok   = val_tok.filter(  lambda x: len(x["input_ids"]) > 0 and any(l != -100 for l in x["labels"]))
 print(f"Train after filter: {len(train_tok)} | Val: {len(val_tok)}")
 
-# ─────────────────────────────────────────
+
 # MASKING VERIFICATION — confirm labels are correct before wasting GPU time
-# ─────────────────────────────────────────
+
 print("\n===== MASKING VERIFICATION =====")
 for i in range(min(3, len(train_tok))):
     s        = train_tok[i]
@@ -168,9 +167,9 @@ for i in range(min(3, len(train_tok))):
         print("    *** WARNING: all tokens masked — check truncation! ***")
 print("=================================\n")
 
-# ─────────────────────────────────────────
+
 # QLoRA CONFIG
-# ─────────────────────────────────────────
+
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
     bnb_4bit_compute_dtype=torch.float16,
@@ -178,9 +177,9 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_quant_type="nf4",
 )
 
-# ─────────────────────────────────────────
+
 # MODEL
-# ─────────────────────────────────────────
+
 print("Loading model...")
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
@@ -194,9 +193,9 @@ model.enable_input_require_grads()
 model.gradient_checkpointing_enable()
 model.config.use_cache = False
 
-# ─────────────────────────────────────────
+
 # LoRA — Mistral-7B target modules
-# ─────────────────────────────────────────
+
 lora_config = LoraConfig(
     r=16,
     lora_alpha=32,
@@ -208,9 +207,9 @@ lora_config = LoraConfig(
 model = get_peft_model(model, lora_config)
 model.print_trainable_parameters()
 
-# ─────────────────────────────────────────
+
 # DATA COLLATOR — pads labels with -100, not 0
-# ─────────────────────────────────────────
+
 data_collator = DataCollatorForSeq2Seq(
     tokenizer=tokenizer,
     model=model,
@@ -218,14 +217,14 @@ data_collator = DataCollatorForSeq2Seq(
     pad_to_multiple_of=8,
 )
 
-# ─────────────────────────────────────────
+
 # TRAINING ARGS
 #
 # HOW TO DETECT OVERFITTING in the logs:
 #   train_loss drops steadily BUT eval_loss plateaus or rises → overfit
 #   EarlyStoppingCallback will auto-stop after 2 eval steps with no improvement
 #   Manual stop: interrupt if eval_loss hasn't dropped in last 3-4 prints
-# ─────────────────────────────────────────
+
 training_args = TrainingArguments(
     output_dir=OUTPUT_DIR,
 
@@ -260,9 +259,9 @@ training_args = TrainingArguments(
     report_to="none",
 )
 
-# ─────────────────────────────────────────
+
 # TRAINER 
-# ─────────────────────────────────────────
+
 trainer = Trainer(
     model=model,
     args=training_args,
@@ -275,9 +274,9 @@ trainer = Trainer(
     ],
 )
 
-# ─────────────────────────────────────────
+
 # PRE-TRAINING INFERENCE CHECK
-# ─────────────────────────────────────────
+
 print("\n===== PRE-TRAINING INFERENCE CHECK =====")
 model.eval()
 sample  = train_tok[0]
@@ -289,23 +288,23 @@ print(f"Zero-shot preview: {pre_txt[:200]!r}")
 print("=========================================\n")
 model.train()
 
-# ─────────────────────────────────────────
+
 # TRAIN
-# ─────────────────────────────────────────
+
 print("===== TRAINING START =====")
 torch.cuda.empty_cache()
 trainer.train()
 
-# ─────────────────────────────────────────
+
 # SAVE
-# ─────────────────────────────────────────
+
 print("\nSaving best adapter...")
 trainer.model.save_pretrained(OUTPUT_DIR)
 tokenizer.save_pretrained(OUTPUT_DIR)
 
-# ─────────────────────────────────────────
+
 # ZIP FOR DOWNLOAD
-# ─────────────────────────────────────────
+
 zip_path = "/kaggle/working/mistral-qlora-v2"
 print(f"\nZipping to {zip_path}.zip ...")
 shutil.make_archive(zip_path, "zip", OUTPUT_DIR)
